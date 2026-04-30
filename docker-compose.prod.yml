@@ -1,0 +1,117 @@
+# COMPLETE Docker Compose - All services + Frontend Traefik fix
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-constellation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-constellation}
+      POSTGRES_DB: ${POSTGRES_DB:-constellation_hub}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-constellation} -d ${POSTGRES_DB:-constellation_hub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  core-orbits:
+    image: ghcr.io/tamtunnel/constellation-hub/core-orbits:${IMAGE_TAG:-latest}
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-constellation}:${POSTGRES_PASSWORD:-constellation}@postgres:5432/${POSTGRES_DB:-constellation_hub}
+      DATABASE_URL_ASYNC: postgresql+asyncpg://${POSTGRES_USER:-constellation}:${POSTGRES_PASSWORD:-constellation}@postgres:5432/${POSTGRES_DB:-constellation_hub}
+      REDIS_URL: redis://redis:6379
+      DEBUG: ${DEBUG:-false}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      DEMO_MODE: ${DEMO_MODE:-true}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  routing:
+    image: ghcr.io/tamtunnel/constellation-hub/routing:${IMAGE_TAG:-latest}
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-constellation}:${POSTGRES_PASSWORD:-constellation}@postgres:5432/${POSTGRES_DB:-constellation_hub}
+      REDIS_URL: redis://redis:6379
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  ground-scheduler:
+    image: ghcr.io/tamtunnel/constellation-hub/ground-scheduler:${IMAGE_TAG:-latest}
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-constellation}:${POSTGRES_PASSWORD:-constellation}@postgres:5432/${POSTGRES_DB:-constellation_hub}
+      REDIS_URL: redis://redis:6379
+      CORE_ORBITS_URL: http://core-orbits:8001
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      - postgres
+      - redis
+      - core-orbits
+    restart: unless-stopped
+
+  ai-agents:
+    image: ghcr.io/tamtunnel/constellation-hub/ai-agents:${IMAGE_TAG:-latest}
+    ports:
+      - "8004:8004"
+    environment:
+      GROUND_SCHEDULER_URL: http://ground-scheduler:8003
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      SCHEDULER_STRATEGY: ${SCHEDULER_STRATEGY:-heuristic}
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      - ground-scheduler
+    restart: unless-stopped
+
+  # FRONTEND - FIXED
+  frontend:
+    image: ghcr.io/tamtunnel/constellation-hub/frontend:${IMAGE_TAG:-latest}
+    ports:
+      - "3000:80"
+    labels:
+      traefik.docker.network: coolify
+      traefik.http.services.frontend.loadbalancer.server.port: "80"  # MISSING PIECE
+    depends_on:
+      - core-orbits
+      - routing
+      - ground-scheduler
+      - ai-agents
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
+    name: coolify
+
+volumes:
+  postgres_data:
