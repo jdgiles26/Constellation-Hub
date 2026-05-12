@@ -101,7 +101,7 @@ except ImportError as e:
 # Mount auth routes
 try:
     from common.auth_routes import router as auth_router
-    app.include_router(auth_router)
+    app.include_router(auth_router, prefix="/auth")
 except ImportError:
     logger.warning("Auth routes not available - running without auth endpoints")
 

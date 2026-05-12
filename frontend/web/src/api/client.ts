@@ -33,6 +33,11 @@ export const api = {
   // Core Orbits
   getConstellations: () => coreOrbitsApi.get("/constellations"),
   getSatellites: () => coreOrbitsApi.get("/satellites"),
+  getSatelliteById: (id: number) => coreOrbitsApi.get(`/satellites/${id}`),
+  createSatellite: (data: Record<string, unknown>) =>
+    coreOrbitsApi.post("/satellites", data),
+  updateSatelliteTLE: (id: number, data: { line1: string; line2: string }) =>
+    coreOrbitsApi.put(`/satellites/${id}/tle`, data),
   getSatellitePosition: (id: number, time?: string) =>
     coreOrbitsApi.get(
       `/satellites/${id}/position${time ? `?time=${time}` : ""}`,
@@ -40,8 +45,12 @@ export const api = {
 
   // Ground Scheduler
   getGroundStations: () => schedulerApi.get("/ground-stations"),
+  createGroundStation: (data: Record<string, unknown>) =>
+    schedulerApi.post("/ground-stations", data),
   getPasses: () => schedulerApi.get("/passes"),
   getSchedule: () => schedulerApi.get("/schedule"),
+  generateSchedule: (data: Record<string, unknown>) =>
+    schedulerApi.post("/schedule/generate", data),
 
   // AI Agents
   optimizeSchedule: (data: Record<string, unknown>) =>

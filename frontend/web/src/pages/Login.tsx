@@ -20,15 +20,14 @@ export default function Login() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const performLogin = async (user: string, pass: string) => {
     setLoading(true);
     setError("");
 
     try {
       const formData = new FormData();
-      formData.append("username", username);
-      formData.append("password", password);
+      formData.append("username", user);
+      formData.append("password", pass);
 
       const response = await api.login(formData);
       const { access_token } = response.data;
@@ -36,9 +35,9 @@ export default function Login() {
       localStorage.setItem("token", access_token);
       localStorage.setItem(
         "user_role",
-        username.includes("admin")
+        user.includes("admin")
           ? "admin"
-          : username.includes("ops")
+          : user.includes("ops")
             ? "operator"
             : "viewer",
       );
@@ -53,20 +52,27 @@ export default function Login() {
     }
   };
 
-  const handleDemoLogin = (role: "viewer" | "ops" | "admin") => {
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await performLogin(username, password);
+  };
+
+  const handleDemoLogin = async (role: "viewer" | "ops" | "admin") => {
+    let user = "";
+    let pass = "";
     if (role === "viewer") {
-      setUsername("demo_viewer");
-      setPassword("viewer123");
+      user = "demo_viewer";
+      pass = "viewer123";
     } else if (role === "ops") {
-      setUsername("demo_ops");
-      setPassword("operator123");
+      user = "demo_ops";
+      pass = "operator123";
     } else if (role === "admin") {
-      setUsername("demo_admin");
-      setPassword("admin123");
+      user = "demo_admin";
+      pass = "admin123";
     }
-    // We can't auto-submit immediately because state updates are async,
-    // but the user can click login. Or we could use a ref/effect.
-    // For simplicity, let's just fill the form.
+    setUsername(user);
+    setPassword(pass);
+    await performLogin(user, pass);
   };
 
   const handleSeedDemo = async () => {

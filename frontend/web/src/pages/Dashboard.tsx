@@ -6,56 +6,103 @@ import {
     TrendingUp,
     Clock
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { GlobeViewer } from '../components/Globe';
-
-// Mock data for the dashboard
-const mockSatellites = [
-    { id: 1, name: 'SAT-001', latitude: 45.2, longitude: -122.3, altitude_km: 550 },
-    { id: 2, name: 'SAT-002', latitude: 32.1, longitude: 89.5, altitude_km: 560 },
-    { id: 3, name: 'SAT-003', latitude: -15.8, longitude: 45.2, altitude_km: 545 },
-];
-
-const mockGroundStations = [
-    { id: 1, name: 'GS-Alpha', latitude: 40.7, longitude: -74.0 },
-    { id: 2, name: 'GS-Beta', latitude: 51.5, longitude: -0.1 },
-];
-
-const stats = [
-    {
-        label: 'Active Satellites',
-        value: 24,
-        change: '+2',
-        trend: 'up',
-        icon: Satellite,
-        color: 'cosmic'
-    },
-    {
-        label: 'Ground Stations',
-        value: 8,
-        change: '0',
-        trend: 'neutral',
-        icon: Radio,
-        color: 'aurora'
-    },
-    {
-        label: 'Scheduled Passes',
-        value: 156,
-        change: '+12',
-        trend: 'up',
-        icon: Calendar,
-        color: 'nebula'
-    },
-    {
-        label: 'Active Alerts',
-        value: 3,
-        change: '-2',
-        trend: 'down',
-        icon: AlertTriangle,
-        color: 'yellow'
-    },
-];
+import { api } from '../api/client';
 
 export default function Dashboard() {
+    const navigate = useNavigate();
+
+    const { data: satellitesRes } = useQuery({
+        queryKey: ['satellites'],
+        queryFn: async () => {
+            const res = await api.getSatellites();
+            return res.data;
+        }
+    });
+
+    const { data: stationsRes } = useQuery({
+        queryKey: ['groundStations'],
+        queryFn: async () => {
+            const res = await api.getGroundStations();
+            return res.data;
+        }
+    });
+
+    const { data: scheduleRes } = useQuery({
+        queryKey: ['schedule'],
+        queryFn: async () => {
+            const res = await api.getSchedule();
+            return res.data;
+        }
+    });
+
+    const satellites = Array.isArray(satellitesRes) ? satellitesRes : (satellitesRes?.items || satellitesRes?.data || []);
+    const stations = Array.isArray(stationsRes) ? stationsRes : (stationsRes?.items || stationsRes?.data || []);
+    const schedule = scheduleRes;
+
+    const stats = [
+        {
+            label: 'Active Satellites',
+            value: satellites.length,
+            change: '+2',
+            trend: 'up',
+            icon: Satellite,
+            color: 'cosmic'
+        },
+        {
+            label: 'Ground Stations',
+            value: stations.length,
+            change: '0',
+            trend: 'neutral',
+            icon: Radio,
+            color: 'aurora'
+        },
+        {
+            label: 'Scheduled Passes',
+            value: schedule?.scheduled_passes?.length ?? 0,
+            change: '+12',
+            trend: 'up',
+            icon: Calendar,
+            color: 'nebula'
+        },
+        {
+            label: 'Active Alerts',
+            value: 3,
+            change: '-2',
+            trend: 'down',
+            icon: AlertTriangle,
+            color: 'yellow'
+        },
+    ];
+
+    const globeSatellites = satellites.length > 0
+        ? satellites.slice(0, 10).map((s: any, i: number) => ({
+            id: s.id || i,
+            name: s.name || `SAT-${String(i + 1).padStart(3, '0')}`,
+            latitude: s.latitude ?? (Math.random() * 180 - 90),
+            longitude: s.longitude ?? (Math.random() * 360 - 180),
+            altitude_km: s.altitude_km ?? 550,
+        }))
+        : [
+            { id: 1, name: 'SAT-001', latitude: 45.2, longitude: -122.3, altitude_km: 550 },
+            { id: 2, name: 'SAT-002', latitude: 32.1, longitude: 89.5, altitude_km: 560 },
+            { id: 3, name: 'SAT-003', latitude: -15.8, longitude: 45.2, altitude_km: 545 },
+        ];
+
+    const globeStations = stations.length > 0
+        ? stations.slice(0, 5).map((s: any, i: number) => ({
+            id: s.id || i,
+            name: s.name || `GS-${String.fromCharCode(65 + i)}`,
+            latitude: s.latitude ?? (Math.random() * 180 - 90),
+            longitude: s.longitude ?? (Math.random() * 360 - 180),
+        }))
+        : [
+            { id: 1, name: 'GS-Alpha', latitude: 40.7, longitude: -74.0 },
+            { id: 2, name: 'GS-Beta', latitude: 51.5, longitude: -0.1 },
+        ];
+
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
@@ -117,8 +164,8 @@ export default function Dashboard() {
                 {/* Globe view */}
                 <div className="lg:col-span-2 card p-0 overflow-hidden" style={{ height: '500px' }}>
                     <GlobeViewer
-                        satellites={mockSatellites}
-                        groundStations={mockGroundStations}
+                        satellites={globeSatellites}
+                        groundStations={globeStations}
                     />
                 </div>
 
@@ -153,7 +200,12 @@ export default function Dashboard() {
             <div className="card">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">Upcoming Passes</h3>
-                    <button className="btn-secondary text-sm">View All</button>
+                    <button
+                        className="btn-secondary text-sm"
+                        onClick={() => navigate('/scheduling')}
+                    >
+                        View All
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">

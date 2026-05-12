@@ -21,8 +21,15 @@ from alembic import command
 
 
 def get_alembic_config():
-    """Get Alembic configuration."""
-    config_path = os.path.join(os.path.dirname(__file__), 'alembic.ini')
+    """Get Alembic configuration.
+
+    Resolves alembic.ini relative to this script's directory.
+    The script lives in backend/scripts/ and alembic.ini is in backend/.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # alembic.ini is one level up from scripts/
+    config_path = os.path.join(script_dir, '..', 'alembic.ini')
+    config_path = os.path.normpath(config_path)
     return Config(config_path)
 
 
